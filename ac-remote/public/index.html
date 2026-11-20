@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AC Remote</title>
+<meta name="theme-color" content="#FFFFFF">
+<meta name="color-scheme" content="light">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="AC Remote">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --white: #FFFFFF;
+    --surface: #F7F5F4;
+    --ink: #1C1718;
+    --muted: #736B6C;
+    --line: #ECE8E7;
+    --maroon: #7B1E2C;
+    --maroon-press: #64151F;
+    --maroon-tint: #F6EAEC;
+    --danger: #B42318;
+    --tap: 48px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--white); color: var(--ink); }
+  body {
+    font-family: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; background: none; border: 0; padding: 0; }
+  :focus-visible { outline: 2px solid var(--maroon); outline-offset: 3px; border-radius: 10px; }
+  [hidden] { display: none !important; }
+  svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+  main {
+    max-width: 440px; margin: 0 auto;
+    padding: max(14px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom));
+  }
+
+  /* ---------- Sign in ---------- */
+  .signin { min-height: 88vh; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+  .signin .mark { width: 56px; height: 56px; margin: 0 auto 22px; border-radius: 16px; background: var(--maroon); color: var(--white);
+    display: grid; place-items: center; }
+  .signin .mark svg { width: 28px; height: 28px; }
+  .signin h1 { font-size: 26px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 6px; }
+  .signin p { color: var(--muted); margin: 0 0 28px; }
+  .pin {
+    width: 100%; height: 64px; text-align: center; font-size: 28px; letter-spacing: .5em; text-indent: .5em;
+    border: 1.5px solid var(--line); border-radius: 16px; background: var(--surface); outline: none;
+    transition: border-color .15s;
+  }
+  .pin:focus { border-color: var(--maroon); background: var(--white); }
+  .pin.shake { animation: shake .35s; border-color: var(--danger); }
+  @keyframes shake { 25% { transform: translateX(-8px) } 50% { transform: translateX(6px) } 75% { transform: translateX(-3px) } }
+  .error-text { color: var(--danger); font-size: 14px; min-height: 20px; margin: 10px 0 14px; }
+  .primary {
+    width: 100%; height: 56px; border-radius: 16px; background: var(--maroon); color: var(--white);
+    font-weight: 600; font-size: 17px; transition: background .15s;
+  }
+  .primary:active { background: var(--maroon-press); }
+  .primary:disabled { opacity: .5; }
+
+  /* ---------- Header ---------- */
+  header { display: flex; align-items: center; gap: 8px; min-height: var(--tap); }
+  .device { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+  .device h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .device .chev { width: 18px; height: 18px; color: var(--muted); flex: none; }
+  .device select { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+  .icon-btn { width: var(--tap); height: var(--tap); border-radius: 50%; display: grid; place-items: center; color: var(--muted); flex: none; }
+  .icon-btn:active { background: var(--surface); }
+  .icon-btn.spin svg { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 15px; margin-top: 2px; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: #C9C2C2; flex: none; }
+  .status.on .dot { background: var(--maroon); }
+  .status.offline .dot { background: var(--danger); }
+  .status .saving { margin-left: auto; font-size: 13px; }
+
+  /* ---------- Dial ---------- */
+  .dial { position: relative; width: min(300px, 82vw); aspect-ratio: 1; margin: 18px auto 0; }
+  .dial > svg { width: 100%; height: 100%; transform: rotate(135deg); }
+  .dial circle { fill: none; stroke-width: 10; stroke-linecap: round; }
+  .dial .track { stroke: var(--line); }
+  .dial .value { stroke: var(--maroon); transition: stroke-dasharray .35s ease, stroke .2s; }
+  .dial.off .value { stroke: #CFC8C8; }
+  .dial .readout { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .dial .target { font-size: 88px; font-weight: 500; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .dial .target .deg { font-size: 40px; vertical-align: top; position: relative; top: 8px; margin-left: 2px; color: var(--muted); font-weight: 400; }
+  .dial.off .target { color: #B8B0B1; }
+  .dial .room {
+    margin-top: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 9px;
+    border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums;
+  }
+  .dial .room svg { width: 18px; height: 18px; color: var(--maroon); }
+  .dial .room .muted { color: var(--muted); }
+  .dial .note { margin-top: 10px; color: var(--muted); font-size: 14px; max-width: 170px; text-align: center; }
+
+  .main-row { display: grid; grid-template-columns: 64px 1fr 64px; align-items: center; gap: 16px; margin: -18px 8px 0; position: relative; }
+  .step { width: 64px; height: 64px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; transition: background .15s, transform .1s; }
+  .step svg { width: 26px; height: 26px; }
+  .step:active { transform: scale(.94); background: var(--line); }
+  .step:disabled { opacity: .35; }
+  .power {
+    justify-self: center; height: 64px; padding: 0 26px; border-radius: 32px; display: flex; align-items: center; gap: 10px;
+    font-weight: 600; font-size: 17px; background: var(--white); color: var(--maroon); border: 1.5px solid var(--maroon);
+    transition: background .15s, color .15s;
+  }
+  .power.on { background: var(--maroon); color: var(--white); }
+  .power:active { transform: scale(.98); }
+
+  /* ---------- Sections ---------- */
+  section.group { margin-top: 32px; }
+  .group h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+  /* Mode: rarely changed, so it sits in one row and opens in place. */
+  .mode-group { margin-top: 20px; }
+  .mode-row .mode-value { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 15px; }
+  .mode-row .mode-value svg { width: 18px; height: 18px; }
+  .mode-row .chev-r { width: 18px; height: 18px; color: var(--muted); transform: rotate(-90deg); transition: transform .2s; flex: none; }
+  .mode-row[aria-expanded="true"] .chev-r { transform: rotate(0deg); }
+  .modes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 4px 0 14px; border-bottom: 1px solid var(--line); }
+  .mode {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    height: 58px; border-radius: 12px; background: var(--surface); color: var(--ink); font-size: 12px; font-weight: 500;
+    border: 1.5px solid transparent; transition: background .15s, color .15s, border-color .15s;
+  }
+  .mode svg { width: 20px; height: 20px; }
+  .mode[aria-pressed="true"] { background: var(--maroon-tint); color: var(--maroon); border-color: var(--maroon); }
+
+  /* Fan speed slider: 6 stops, labels sit exactly under each stop. */
+  .fan { --thumb: 28px; --p: 0; position: relative; padding-top: 4px; }
+  .fan input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: var(--thumb); margin: 0;
+    background: transparent; cursor: pointer; display: block;
+  }
+  .fan input[type=range]::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(to right, var(--maroon) 0 calc(var(--thumb) / 2 + var(--p) * (100% - var(--thumb))), var(--line) 0);
+  }
+  .fan input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--line); }
+  .fan input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--maroon); }
+  .fan input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: var(--thumb); height: var(--thumb); margin-top: calc(3px - var(--thumb) / 2);
+    border-radius: 50%; background: var(--white); border: 2px solid var(--maroon); box-shadow: 0 1px 4px rgba(28,23,24,.2);
+  }
+  .fan input[type=range]::-moz-range-thumb {
+    width: var(--thumb); height: var(--thumb); box-sizing: border-box; border-radius: 50%; background: var(--white);
+    border: 2px solid var(--maroon); box-shadow: 0 1px 4px rgba(28,23,24,.2);
+  }
+  .fan input[type=range]:focus-visible { outline: none; }
+  .fan input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px var(--maroon-tint); }
+  .fan-labels { position: relative; height: 34px; margin-top: 4px; }
+  .fan-labels button {
+    position: absolute; top: 0; left: calc(var(--thumb) / 2 + var(--i) * (100% - var(--thumb)) / 5);
+    transform: translateX(-50%); height: 34px; padding: 0 4px; font-size: 13px; color: var(--muted); font-weight: 500;
+  }
+  .fan-labels button:first-child { transform: translateX(calc(-1 * var(--thumb) / 2)); }
+  .fan-labels button:last-child { transform: translateX(calc(-100% + var(--thumb) / 2)); }
+  .fan-labels button.on { color: var(--maroon); font-weight: 600; }
+
+  .speeds { display: grid; grid-template-columns: repeat(6, 1fr); background: var(--surface); border-radius: 14px; padding: 4px; gap: 2px; }
+  .speed { height: 44px; border-radius: 11px; font-size: 14px; font-weight: 500; color: var(--muted); transition: background .15s, color .15s; }
+  .speed[aria-pressed="true"] { background: var(--white); color: var(--maroon); box-shadow: 0 1px 2px rgba(28,23,24,.12); font-weight: 600; }
+
+  .list { border-top: 1px solid var(--line); }
+  .row { width: 100%; display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 8px 2px; border-bottom: 1px solid var(--line); text-align: left; }
+  .row .text { flex: 1; }
+  .row .title { display: block; font-size: 16px; font-weight: 500; }
+  .row .sub { display: block; font-size: 13px; color: var(--muted); }
+  .switch { width: 46px; height: 28px; border-radius: 14px; background: #DDD6D6; position: relative; flex: none; transition: background .2s; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--white);
+    box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .2s; }
+  .row[aria-checked="true"] .switch { background: var(--maroon); }
+  .row[aria-checked="true"] .switch::after { transform: translateX(18px); }
+
+  /* Air direction: two equal tiles. */
+  .swings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .swing {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left;
+    padding: 14px; min-height: 104px; border-radius: 16px; background: var(--surface);
+    border: 1.5px solid transparent; transition: background .15s, border-color .15s, color .15s;
+  }
+  .swing svg { width: 24px; height: 24px; color: var(--muted); margin-bottom: 4px; }
+  .swing-name { font-size: 15px; font-weight: 500; line-height: 1.25; }
+  .swing-state { font-size: 13px; color: var(--muted); }
+  .swing[aria-checked="true"] { background: var(--maroon-tint); border-color: var(--maroon); }
+  .swing[aria-checked="true"] svg, .swing[aria-checked="true"] .swing-state { color: var(--maroon); }
+
+  /* Display light: low-key setting near the bottom. */
+  .quiet-toggle {
+    width: 100%; margin-top: 36px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    min-height: var(--tap); color: var(--muted); font-size: 14px; text-align: left;
+  }
+  .quiet-toggle .switch { width: 38px; height: 22px; border-radius: 11px; }
+  .quiet-toggle .switch::after { top: 3px; left: 3px; width: 16px; height: 16px; }
+  .quiet-toggle[aria-checked="true"] .switch { background: var(--muted); }
+  .quiet-toggle[aria-checked="true"] .switch::after { transform: translateX(16px); }
+
+  .footer { margin-top: 8px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; }
+  .link { color: var(--muted); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; min-height: var(--tap); }
+
+  /* ---------- Schedules ---------- */
+  .group-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .group-head h2 { margin: 0; }
+  .add { display: inline-flex; align-items: center; gap: 6px; color: var(--maroon); font-weight: 600; font-size: 15px; min-height: 40px; padding: 0 4px; }
+  .add svg { width: 18px; height: 18px; }
+  .srow { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
+  .srow .sedit { flex: 1; min-width: 0; text-align: left; padding: 12px 2px; }
+  .srow .stime { font-size: 26px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .srow .sdesc { display: block; font-size: 14px; color: var(--muted); }
+  .srow .swarn { display: block; font-size: 13px; color: var(--danger); margin-top: 2px; }
+  .srow.disabled .stime, .srow.disabled .sdesc { color: #B8B0B1; }
+  .srow .toggle { display: flex; align-items: center; flex: none; min-height: var(--tap); padding: 0 2px; }
+  .srow .toggle[aria-checked="true"] .switch { background: var(--maroon); }
+  .srow .toggle[aria-checked="true"] .switch::after { transform: translateX(18px); }
+  .snone { color: var(--muted); font-size: 15px; padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+
+  dialog.sheet {
+    width: 100%; max-width: 480px; max-height: 92vh; margin: auto auto 0; padding: 0; border: 0;
+    border-radius: 24px 24px 0 0; background: var(--white); color: var(--ink); overflow: auto;
+  }
+  dialog.sheet::backdrop { background: rgba(28, 23, 24, .35); }
+  @media (min-width: 560px) { dialog.sheet { margin: auto; border-radius: 24px; } }
+  .sheet-inner { padding: 8px 20px max(20px, env(safe-area-inset-bottom)); }
+  .grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 6px auto 10px; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .sheet-head h2 { font-size: 20px; font-weight: 600; margin: 0; }
+  .field { margin-top: 20px; }
+  .field > .flabel { display: block; font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+  .field .hint { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface); border-radius: 14px; padding: 4px; gap: 2px; }
+  .two button { height: 46px; border-radius: 11px; font-weight: 500; color: var(--muted); }
+  .two button[aria-pressed="true"] { background: var(--white); color: var(--maroon); font-weight: 600; box-shadow: 0 1px 2px rgba(28,23,24,.12); }
+  .time-input {
+    width: 100%; height: 64px; border-radius: 16px; border: 1.5px solid var(--line); background: var(--surface);
+    font-size: 30px; font-weight: 500; text-align: center; font-variant-numeric: tabular-nums; padding: 0 12px;
+  }
+  .time-input:focus { outline: none; border-color: var(--maroon); background: var(--white); }
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .day { width: 100%; max-width: 44px; aspect-ratio: 1; justify-self: center; border-radius: 50%; background: var(--surface); font-weight: 500; font-size: 14px; }
+  .day[aria-pressed="true"] { background: var(--maroon); color: var(--white); }
+  .chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .chip { height: 44px; border-radius: 12px; background: var(--surface); font-size: 14px; font-weight: 500; border: 1.5px solid transparent; }
+  .chip[aria-pressed="true"] { background: var(--maroon-tint); color: var(--maroon); border-color: var(--maroon); }
+  .stepper { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border-radius: 16px; padding: 6px; }
+  .stepper button { width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; background: var(--white); }
+  .stepper button:disabled { opacity: .35; }
+  .stepper output { font-size: 28px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .sheet-actions { margin-top: 26px; display: grid; gap: 8px; }
+  .danger-link { height: 48px; color: var(--danger); font-weight: 500; }
+
+  .empty { text-align: center; padding: 22vh 12px 0; }
+  .empty h2 { font-size: 20px; margin: 0 0 8px; }
+  .empty p { color: var(--muted); margin: 0 0 22px; }
+  .skeleton { height: 300px; width: min(300px, 82vw); margin: 30px auto 0; border-radius: 50%; border: 10px solid var(--surface); }
+
+  .unavailable { opacity: .45; pointer-events: none; }
+
+  #toast {
+    position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); margin: 0 auto; max-width: 408px;
+    background: var(--ink); color: var(--white); padding: 14px 16px; border-radius: 14px; font-size: 15px;
+    display: none; z-index: 10;
+  }
+  #toast.show { display: block; }
+
+  @media (min-width: 760px) {
+    main { padding-top: 48px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.4 6.6a8 8 0 1 0 11.2 0"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.7-4.3L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.7 4.3L20 16"/><path d="M20 20v-4h-4"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-cool" viewBox="0 0 24 24"><path d="M12 2v20M4.2 7l15.6 10M4.2 17 19.8 7"/><path d="m9 4 3 2 3-2M9 20l3-2 3 2"/></symbol>
+  <symbol id="i-heat" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-dry" viewBox="0 0 24 24"><path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11Z"/></symbol>
+  <symbol id="i-fan" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><path d="M12 10.4C12 6 13 3 15.5 3S19 6 12 10.4ZM13.6 12c4.4 0 7.4 1 7.4 3.5S18 19 13.6 12ZM12 13.6c0 4.4-1 7.4-3.5 7.4S5 18 12 13.6ZM10.4 12C6 12 3 11 3 8.5S6 5 10.4 12Z"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/><path d="M9.5 15.5 12 8.5l2.5 7M10.4 13.2h3.2"/></symbol>
+  <symbol id="i-signout" viewBox="0 0 24 24"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M15 8l4 4-4 4M19 12H9"/></symbol>
+  <symbol id="i-swing-v" viewBox="0 0 24 24"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></symbol>
+  <symbol id="i-swing-h" viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></symbol>
+  <symbol id="i-thermo" viewBox="0 0 24 24"><path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0Z"/><path d="M12 11v6"/></symbol>
+  <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 3v18M4 7.5l16 9M4 16.5l16-9"/></symbol>
+</svg>
+
+<main>
+  <!-- Sign in -->
+  <section id="signin" class="signin" hidden>
+    <div class="mark"><svg class="i"><use href="#i-snow"/></svg></div>
+    <h1>AC Remote</h1>
+    <p>Enter your passcode to control your air conditioner.</p>
+    <form id="signinForm" novalidate>
+      <input id="pin" class="pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="current-password"
+             enterkeyhint="go" maxlength="12" placeholder="••••••" aria-label="Passcode" required>
+      <div class="error-text" id="pinError" role="alert"></div>
+      <button class="primary" id="unlock" type="submit">Unlock</button>
+    </form>
+  </section>
+
+  <!-- App -->
+  <div id="app" hidden>
+    <header>
+      <div class="device">
+        <h1 id="name">Air conditioner</h1>
+        <svg class="i chev" id="chev" hidden><use href="#i-chev"/></svg>
+        <select id="picker" aria-label="Switch air conditioner" hidden></select>
+      </div>
+      <button class="icon-btn" id="refresh" aria-label="Refresh status" title="Refresh"><svg class="i"><use href="#i-refresh"/></svg></button>
+      <button class="icon-btn" id="signout" aria-label="Sign out" title="Sign out"><svg class="i"><use href="#i-signout"/></svg></button>
+    </header>
+    <div class="status" id="status" aria-live="polite">
+      <span class="dot"></span><span id="statusText">Connecting…</span><span class="saving" id="saving"></span>
+    </div>
+
+    <div id="loading"><div class="skeleton"></div></div>
+
+    <div id="empty" class="empty" hidden>
+      <h2 id="emptyTitle">No air conditioners found</h2>
+      <p id="emptyText">Add your AC in the AC Freedom app first, then try again.</p>
+      <button class="primary" id="retry">Try again</button>
+    </div>
+
+    <div id="controls" hidden>
+      <div class="dial" id="dial">
+        <svg viewBox="0 0 260 260" aria-hidden="true">
+          <circle class="track" cx="130" cy="130" r="118" stroke-dasharray="556 1000"/>
+          <circle class="value" id="arc" cx="130" cy="130" r="118" stroke-dasharray="0 1000"/>
+        </svg>
+        <div class="readout">
+          <div class="target" aria-live="polite"><span id="target">--</span><span class="deg">°</span></div>
+          <div class="room" id="roomLine" title="Room temperature measured by your AC">
+            <svg class="i"><use href="#i-thermo"/></svg><span class="muted">Room</span><span><span id="room">--</span>°</span>
+          </div>
+          <div class="note" id="tempNote" hidden>Fan mode doesn't use a target temperature</div>
+        </div>
+      </div>
+
+      <div class="main-row">
+        <button class="step" id="down" aria-label="Lower temperature"><svg class="i"><use href="#i-minus"/></svg></button>
+        <button class="power" id="power" aria-pressed="false"><svg class="i"><use href="#i-power"/></svg><span id="powerText">Turn on</span></button>
+        <button class="step" id="up" aria-label="Raise temperature"><svg class="i"><use href="#i-plus"/></svg></button>
+      </div>
+
+      <section class="group">
+        <h2>Fan speed</h2>
+        <div class="fan" id="speeds">
+          <input type="range" min="0" max="5" step="1" value="0" aria-label="Fan speed">
+          <div class="fan-labels"><button type="button" data-i="0" style="--i:0">Auto</button><button type="button" data-i="1" style="--i:1">Quiet</button><button type="button" data-i="2" style="--i:2">Low</button><button type="button" data-i="3" style="--i:3">Med</button><button type="button" data-i="4" style="--i:4">High</button><button type="button" data-i="5" style="--i:5">Turbo</button></div>
+        </div>
+      </section>
+
+      <section class="group" id="airGroup">
+        <h2>Air direction</h2>
+        <div class="swings">
+          <button class="swing" role="switch" data-k="ac_vdir" aria-checked="false">
+            <svg class="i"><use href="#i-swing-v"/></svg>
+            <span class="swing-name">Up and down</span>
+            <span class="swing-state"></span>
+          </button>
+          <button class="swing" role="switch" data-k="ac_hdir" aria-checked="false">
+            <svg class="i"><use href="#i-swing-h"/></svg>
+            <span class="swing-name">Side to side</span>
+            <span class="swing-state"></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="group mode-group">
+        <div class="list">
+          <button class="row mode-row" id="modeRow" aria-expanded="false" aria-controls="modes">
+            <span class="text"><span class="title">Mode</span></span>
+            <span class="mode-value"><svg class="i" id="modeIcon"><use href="#i-cool"/></svg><span id="modeName">Cool</span></span>
+            <svg class="i chev-r"><use href="#i-chev"/></svg>
+          </button>
+          <div class="modes" id="modes" hidden>
+            <button class="mode" data-v="0" aria-pressed="false"><svg class="i"><use href="#i-cool"/></svg>Cool</button>
+            <button class="mode" data-v="1" aria-pressed="false"><svg class="i"><use href="#i-heat"/></svg>Heat</button>
+            <button class="mode" data-v="2" aria-pressed="false"><svg class="i"><use href="#i-dry"/></svg>Dry</button>
+            <button class="mode" data-v="3" aria-pressed="false"><svg class="i"><use href="#i-fan"/></svg>Fan</button>
+            <button class="mode" data-v="4" aria-pressed="false"><svg class="i"><use href="#i-auto"/></svg>Auto</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-head">
+          <h2>Schedules</h2>
+          <button class="add" id="addSchedule"><svg class="i"><use href="#i-plus"/></svg>Add</button>
+        </div>
+        <div id="scheduleList"></div>
+      </section>
+
+      <button class="quiet-toggle" role="switch" data-k="scrdisp" aria-checked="false">
+        <span>Display light on the indoor unit</span><span class="switch"></span>
+      </button>
+
+      <div class="footer">
+        <span id="updated"></span>
+      </div>
+    </div>
+  </div>
+
+  <dialog class="sheet" id="sheet" aria-labelledby="sheetTitle">
+    <form class="sheet-inner" id="sheetForm" method="dialog" novalidate>
+      <div class="grabber"></div>
+      <div class="sheet-head">
+        <h2 id="sheetTitle">New schedule</h2>
+        <button type="button" class="icon-btn" id="sheetClose" aria-label="Close">
+          <svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="field">
+        <div class="two" id="fAction" role="group" aria-label="Action">
+          <button type="button" data-v="1" aria-pressed="true">Turn on</button>
+          <button type="button" data-v="0" aria-pressed="false">Turn off</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="flabel" for="fTime">Time</label>
+        <input class="time-input" id="fTime" type="time" required>
+      </div>
+
+      <div class="field">
+        <span class="flabel">Repeat</span>
+        <div class="days" id="fDays" role="group" aria-label="Repeat on">
+          <button type="button" class="day" data-d="1" aria-label="Monday">M</button>
+          <button type="button" class="day" data-d="2" aria-label="Tuesday">T</button>
+          <button type="button" class="day" data-d="3" aria-label="Wednesday">W</button>
+          <button type="button" class="day" data-d="4" aria-label="Thursday">T</button>
+          <button type="button" class="day" data-d="5" aria-label="Friday">F</button>
+          <button type="button" class="day" data-d="6" aria-label="Saturday">S</button>
+          <button type="button" class="day" data-d="0" aria-label="Sunday">S</button>
+        </div>
+        <div class="hint" id="fRepeatHint">Runs once</div>
+      </div>
+
+      <div id="fOnOnly">
+        <div class="field">
+          <span class="flabel">Mode</span>
+          <div class="chips" id="fMode">
+            <button type="button" class="chip" data-v="0">Cool</button>
+            <button type="button" class="chip" data-v="1">Heat</button>
+            <button type="button" class="chip" data-v="2">Dry</button>
+            <button type="button" class="chip" data-v="3">Fan</button>
+            <button type="button" class="chip" data-v="4">Auto</button>
+          </div>
+        </div>
+        <div class="field" id="fTempField">
+          <span class="flabel">Temperature</span>
+          <div class="stepper">
+            <button type="button" id="fTempDown" aria-label="Lower temperature"><svg class="i"><use href="#i-minus"/></svg></button>
+            <output id="fTemp">24°</output>
+            <button type="button" id="fTempUp" aria-label="Raise temperature"><svg class="i"><use href="#i-plus"/></svg></button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="flabel">Fan speed</span>
+          <div class="fan" id="fFan">
+          <input type="range" min="0" max="5" step="1" value="0" aria-label="Fan speed for this schedule">
+          <div class="fan-labels"><button type="button" data-i="0" style="--i:0">Auto</button><button type="button" data-i="1" style="--i:1">Quiet</button><button type="button" data-i="2" style="--i:2">Low</button><button type="button" data-i="3" style="--i:3">Med</button><button type="button" data-i="4" style="--i:4">High</button><button type="button" data-i="5" style="--i:5">Turbo</button></div>
+        </div>
+        </div>
+      </div>
+
+      <div class="sheet-actions">
+        <button type="submit" class="primary" id="sheetSave">Save schedule</button>
+        <button type="button" class="danger-link" id="sheetDelete" hidden>Delete schedule</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="assertive"></div>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const MODE_NAMES = ["Cooling", "Heating", "Drying", "Fan only", "Auto"];
+const MIN = 16, MAX = 32, ARC = 556; // 556 ≈ 270° of the r=118 circle
+
+let devices = [], current = null, state = {}, online = true;
+let pendingTemp = null, tempTimer = null, inflight = 0, lastUpdated = null;
+const roomTemp = {};             // last real room temperature per device
+
+/* ---------- helpers ---------- */
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 4500);
+}
+const buzz = () => { try { navigator.vibrate && navigator.vibrate(8); } catch {} };
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (n) => (Math.round(n * 10) / 10).toString();
+
+class SignedOut extends Error {}
+
+async function api(path, opts = {}) {
+  let res;
+  try {
+    res = await fetch(path, { ...opts, credentials: "same-origin", headers: { "Content-Type": "application/json" } });
+  } catch {
+    throw new Error("No internet connection. Check your connection and try again.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && path !== "/api/login") { showSignin(); throw new SignedOut(); }
+  if (!res.ok) throw new Error(data.error || `Something went wrong (${res.status}). Try again.`);
+  return data;
+}
+
+/* ---------- sign in ---------- */
+let pinLength = null;   // passcode length from the server, so we can unlock as soon as it's typed
+let signingIn = false;
+
+function showSignin() {
+  $("#app").hidden = true; $("#signin").hidden = false;
+  setTimeout(() => $("#pin").focus(), 50);
+  if (pinLength == null) {
+    fetch("/api/pin-length").then((r) => r.json()).then((d) => {
+      if (Number.isInteger(d.length) && d.length > 0) {
+        pinLength = d.length;
+        $("#pin").maxLength = pinLength;
+        $("#pin").placeholder = "•".repeat(pinLength);
+      }
+    }).catch(() => {});
+  }
+}
+function showApp() { $("#signin").hidden = true; $("#app").hidden = false; }
+
+$("#pin").addEventListener("input", (e) => {
+  e.target.value = e.target.value.replace(/\D/g, "");
+  e.target.classList.remove("shake"); $("#pinError").textContent = "";
+  if (pinLength && e.target.value.length === pinLength && !signingIn) $("#signinForm").requestSubmit();
+});
+
+$("#signinForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const pin = $("#pin"), btn = $("#unlock");
+  if (!pin.value) { pin.focus(); return; }
+  if (signingIn) return;
+  signingIn = true;
+  btn.disabled = true; btn.textContent = "Checking…";
+  try {
+    await api("/api/login", { method: "POST", body: JSON.stringify({ passcode: pin.value }) });
+    pin.value = ""; pin.blur(); showApp(); load();
+  } catch (err) {
+    pin.value = ""; pin.classList.remove("shake"); void pin.offsetWidth; pin.classList.add("shake");
+    $("#pinError").textContent = err.message === "Wrong passcode" ? "That passcode isn't right. Try again." : err.message;
+    pin.focus();
+  } finally {
+    signingIn = false;
+    btn.disabled = false; btn.textContent = "Unlock";
+  }
+});
+
+$("#signout").onclick = async () => { await api("/api/logout", { method: "POST" }).catch(() => {}); showSignin(); };
+
+/* ---------- loading ---------- */
+async function load(refresh = false) {
+  showApp();
+  const r = $("#refresh"); r.classList.add("spin");
+  if (!devices.length) { $("#loading").hidden = false; $("#controls").hidden = true; $("#empty").hidden = true; }
+  try {
+    const data = await api("/api/devices" + (refresh ? "?refresh" : ""));
+    devices = data.devices;
+    $("#loading").hidden = true;
+    if (!devices.length) return showEmpty("No air conditioners found", "Add your AC in the AC Freedom app first, then try again.");
+    const saved = store.get("acr_device");
+    if (!devices.some((d) => d.id === current)) current = devices.some((d) => d.id === saved) ? saved : devices[0].id;
+    const picker = $("#picker"), multi = devices.length > 1;
+    picker.hidden = !multi;
+    $("#chev").toggleAttribute("hidden", !multi); // SVG elements have no .hidden property
+    picker.innerHTML = devices.map((d) => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("");
+    picker.value = current;
+    $("#empty").hidden = true; $("#controls").hidden = false;
+    applyDevice(devices.find((d) => d.id === current));
+    loadSchedules();
+  } catch (err) {
+    if (err instanceof SignedOut) return;
+    $("#loading").hidden = true;
+    if (devices.length) toast(err.message);
+    else showEmpty("Can't reach your AC", err.message);
+  } finally {
+    r.classList.remove("spin");
+  }
+}
+
+function showEmpty(title, text) {
+  $("#controls").hidden = true; $("#empty").hidden = false;
+  $("#emptyTitle").textContent = title; $("#emptyText").textContent = text;
+  setStatus("", "Not connected");
+}
+
+$("#retry").onclick = () => load(true);
+$("#refresh").onclick = () => load(true);
+$("#picker").onchange = (e) => {
+  current = e.target.value; store.set("acr_device", current);
+  applyDevice(devices.find((d) => d.id === current)); poll();
+};
+
+function applyDevice(d) {
+  $("#name").textContent = d.name;
+  lastUpdated = new Date();
+  render(d.params, d.online);
+  renderSchedules();
+}
+
+/* ---------- render ---------- */
+function setStatus(kind, text) {
+  $("#status").className = "status " + kind;
+  $("#statusText").textContent = text;
+}
+
+function render(params, isOnline = online) {
+  state = params || {}; online = isOnline;
+  const on = state.pwr === 1;
+  const fanOnly = state.ac_mode === 3;
+  const target = pendingTemp ?? (typeof state.temp === "number" ? state.temp / 10 : null);
+
+  if (!online) setStatus("offline", "Offline. Check the AC has power and Wi-Fi.");
+  else if (!on) setStatus("", "Off");
+  else if (fanOnly) setStatus("on", "Fan only");
+  else setStatus("on", `${MODE_NAMES[state.ac_mode] || "On"}${target != null ? ` to ${fmt(target)}°` : ""}`);
+
+  $("#target").textContent = target == null ? "--" : fmt(target);
+  // 0 means "no reading" on these ACs; keep showing the last real value instead.
+  if (typeof state.envtemp === "number" && state.envtemp !== 0) roomTemp[current] = state.envtemp / 10;
+  const room = roomTemp[current];
+  $("#room").textContent = room == null ? "--" : fmt(room);
+  $("#roomLine").hidden = room == null;
+  const frac = target == null ? 0 : Math.min(1, Math.max(0, (target - MIN) / (MAX - MIN)));
+  $("#arc").setAttribute("stroke-dasharray", `${Math.max(1, frac * ARC)} 1000`);
+  $("#dial").classList.toggle("off", !on || fanOnly);
+
+  $("#tempNote").hidden = !fanOnly;
+  $("#down").disabled = fanOnly || (target != null && target <= MIN);
+  $("#up").disabled = fanOnly || (target != null && target >= MAX);
+
+  const p = $("#power");
+  p.classList.toggle("on", on); p.setAttribute("aria-pressed", String(on));
+  $("#powerText").textContent = on ? "Turn off" : "Turn on";
+
+  for (const b of $$("#modes .mode")) b.setAttribute("aria-pressed", String(+b.dataset.v === state.ac_mode));
+  const modeIcons = ["i-cool", "i-heat", "i-dry", "i-fan", "i-auto"];
+  const hasMode = Number.isInteger(state.ac_mode) && modeIcons[state.ac_mode];
+  $("#modeName").textContent = hasMode ? MODE_LABELS[state.ac_mode] : "--";
+  $("#modeIcon").querySelector("use").setAttribute("href", "#" + (hasMode ? modeIcons[state.ac_mode] : "i-auto"));
+  setFan($("#speeds"), state.ac_mark);
+  for (const b of $$("#controls [data-k]")) {
+    const on = state[b.dataset.k] === 1;
+    b.hidden = !(b.dataset.k in state);       // hide settings this AC doesn't report
+    b.setAttribute("aria-checked", String(on));
+    const label = b.querySelector(".swing-state");
+    if (label) label.textContent = on ? "On" : "Off";
+  }
+  $("#airGroup").hidden = !("ac_vdir" in state) && !("ac_hdir" in state);
+  $("#controls").classList.toggle("unavailable", !online);
+  $("#updated").textContent = lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "";
+}
+
+/* ---------- actions ---------- */
+async function send(values, optimistic = values) {
+  buzz();
+  render({ ...state, ...optimistic });
+  inflight++; $("#saving").textContent = "Saving…";
+  try {
+    const d = await api(`/api/devices/${encodeURIComponent(current)}`, { method: "POST", body: JSON.stringify(values) });
+    updateDevice(d);
+    if (inflight === 1) { $("#saving").textContent = "Saved"; setTimeout(() => { if (!inflight) $("#saving").textContent = ""; }, 1500); }
+  } catch (err) {
+    if (!(err instanceof SignedOut)) { toast(err.message.startsWith("No internet") ? err.message : `Couldn't change that. ${err.message}`); poll(true); }
+    $("#saving").textContent = "";
+  } finally {
+    inflight--;
+  }
+}
+
+function updateDevice(d) {
+  const i = devices.findIndex((x) => x.id === d.id);
+  if (i >= 0) devices[i] = d;
+  if (d.id !== current) return;
+  lastUpdated = new Date();
+  if (pendingTemp == null) render(d.params, d.online); else state = d.params || state;
+}
+
+$("#power").onclick = () => send({ pwr: state.pwr === 1 ? 0 : 1 });
+$("#modes").onclick = (e) => {
+  const b = e.target.closest(".mode"); if (!b) return;
+  const v = +b.dataset.v;
+  setModesOpen(false);
+  if (state.pwr === 1 && state.ac_mode === v) return;
+  send({ pwr: 1, ac_mode: v }); // choosing a mode also turns the AC on
+};
+function setModesOpen(open) {
+  $("#modes").hidden = !open;
+  $("#modeRow").setAttribute("aria-expanded", String(open));
+  // The mode row is a list row, so remove its divider while the options show below it.
+  $("#modeRow").style.borderBottomColor = open ? "transparent" : "";
+}
+$("#modeRow").onclick = () => setModesOpen($("#modes").hidden);
+// Fan slider stops, left to right, and the AC value each one sends.
+const FAN_STEPS = [0, 5, 1, 2, 3, 4];             // auto, quiet, low, med, high, turbo
+const FAN_NEAREST = { 6: 2, 7: 3 };               // medium-low / medium-high show as Low / Med
+function fanIndex(v) { const i = FAN_STEPS.indexOf(v); return i >= 0 ? i : (FAN_NEAREST[v] ?? 0); }
+function showFanIndex(el, i) {
+  const input = el.querySelector("input"), labels = el.querySelectorAll(".fan-labels button");
+  input.value = i;
+  el.style.setProperty("--p", i / 5);
+  labels.forEach((b, j) => b.classList.toggle("on", j === i));
+  input.setAttribute("aria-valuetext", labels[i].textContent);
+}
+// Don't move the thumb under the user's finger while they're dragging.
+function setFan(el, v) { if (el.dataset.dragging !== "1") showFanIndex(el, fanIndex(v)); }
+
+// Dragging previews the label; letting go sends it. Labels are tappable too.
+function wireFan(el, commit) {
+  const input = el.querySelector("input");
+  input.addEventListener("input", () => { el.dataset.dragging = "1"; showFanIndex(el, +input.value); });
+  input.addEventListener("change", () => { el.dataset.dragging = ""; commit(FAN_STEPS[+input.value]); });
+  el.querySelector(".fan-labels").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    showFanIndex(el, +b.dataset.i); commit(FAN_STEPS[+b.dataset.i]);
+  });
+}
+wireFan($("#speeds"), (v) => { if (v !== state.ac_mark) send({ ac_mark: v }); });
+for (const b of $$("#controls [data-k]")) {
+  b.onclick = () => send({ [b.dataset.k]: state[b.dataset.k] === 1 ? 0 : 1 });
+}
+
+// Temperature: taps are collected for a moment, then sent as one change.
+function nudge(delta) {
+  buzz();
+  const base = pendingTemp ?? (typeof state.temp === "number" ? Math.round(state.temp / 10) : 24);
+  pendingTemp = Math.min(MAX, Math.max(MIN, base + delta));
+  render(state);
+  clearTimeout(tempTimer);
+  tempTimer = setTimeout(async () => {
+    const t = pendingTemp;
+    await send({ temp: t }, { temp: t * 10 });
+    if (pendingTemp === t) pendingTemp = null;
+    render(state);
+  }, 600);
+}
+$("#down").onclick = () => nudge(-1);
+$("#up").onclick = () => nudge(1);
+
+/* ---------- background refresh ---------- */
+async function poll(force = false) {
+  if (!current || (!force && (document.hidden || inflight || pendingTemp != null))) return;
+  try { updateDevice(await api(`/api/devices/${encodeURIComponent(current)}`)); } catch {}
+}
+setInterval(poll, 20000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { poll(); loadSchedules(); } });
+
+/* ---------- schedules ---------- */
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MODE_LABELS = ["Cool", "Heat", "Dry", "Fan", "Auto"];
+const FAN_LABELS = { 0: "auto fan", 1: "low fan", 2: "medium fan", 3: "high fan", 4: "turbo fan", 5: "quiet fan" };
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+let schedules = [];
+let editing = null;               // schedule being edited, or null for new
+let draft = null;                 // form state
+
+async function loadSchedules() {
+  try {
+    schedules = (await api("/api/schedules")).schedules || [];
+    renderSchedules();
+  } catch (err) {
+    if (!(err instanceof SignedOut)) $("#scheduleList").innerHTML = `<div class="snone">Couldn't load schedules. Pull down or tap refresh to try again.</div>`;
+  }
+}
+
+function fmtTime(hm) {
+  const [h, m] = hm.split(":").map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function repeatText(days) {
+  if (!days.length) return "Once";
+  if (days.length === 7) return "Every day";
+  const key = [...days].sort().join("");
+  if (key === "12345") return "Weekdays";
+  if (key === "06") return "Weekends";
+  return [1, 2, 3, 4, 5, 6, 0].filter((d) => days.includes(d)).map((d) => DAY_SHORT[d]).join(", ");
+}
+
+function actionText(a) {
+  if (a.pwr === 0) return "Turn off";
+  const parts = ["Turn on"];
+  if (a.ac_mode !== undefined) parts.push(MODE_LABELS[a.ac_mode]);
+  if (a.temp !== undefined && a.ac_mode !== 3) parts.push(`${a.temp}°`);
+  if (a.ac_mark !== undefined) parts.push(FAN_LABELS[a.ac_mark]);
+  return parts.length > 1 ? `${parts[0]}: ${parts.slice(1).join(", ")}` : parts[0];
+}
+
+// Next time this schedule will run, in the viewer's local time.
+function nextRun(s) {
+  const [h, m] = s.time.split(":").map(Number);
+  const now = new Date();
+  for (let i = 0; i < 8; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, h, m);
+    if (d > now && (!s.days.length || s.days.includes(d.getDay()))) return d;
+  }
+  return null;
+}
+
+function whenText(d) {
+  if (!d) return "";
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((new Date(d).setHours(0, 0, 0, 0) - today) / 86400000);
+  if (diff === 0) return "today";
+  if (diff === 1) return "tomorrow";
+  return d.toLocaleDateString([], { weekday: "long" });
+}
+
+function renderSchedules() {
+  const box = $("#scheduleList");
+  if (!box) return;
+  const mine = schedules.filter((s) => s.deviceId === current).sort((a, b) => a.time.localeCompare(b.time));
+  if (!mine.length) {
+    box.innerHTML = `<div class="snone">No schedules yet. Add one to turn your AC on or off automatically.</div>`;
+    return;
+  }
+  box.innerHTML = mine.map((s) => {
+    const nr = s.enabled ? nextRun(s) : null;
+    const once = !s.days.length;
+    const desc = `${once ? (s.enabled ? `Once, ${whenText(nr)}` : "Once, finished") : repeatText(s.days)}. ${actionText(s.action)}`;
+    const warn = s.lastResult && !s.lastResult.ok ? `<span class="swarn">Last run failed: ${esc(s.lastResult.error)}</span>` : "";
+    return `<div class="srow ${s.enabled ? "" : "disabled"}" data-id="${esc(s.id)}">
+      <button class="sedit" aria-label="Edit schedule at ${esc(fmtTime(s.time))}">
+        <span class="stime">${esc(fmtTime(s.time))}</span>
+        <span class="sdesc">${esc(desc)}</span>${warn}
+      </button>
+      <button class="toggle" role="switch" aria-checked="${s.enabled}" aria-label="${s.enabled ? "Turn off" : "Turn on"} this schedule"><span class="switch"></span></button>
+    </div>`;
+  }).join("");
+}
+
+$("#scheduleList").onclick = async (e) => {
+  const row = e.target.closest(".srow"); if (!row) return;
+  const s = schedules.find((x) => x.id === row.dataset.id); if (!s) return;
+  if (e.target.closest(".toggle")) {
+    buzz();
+    const enabled = !s.enabled;
+    s.enabled = enabled; renderSchedules();
+    try {
+      const updated = await api(`/api/schedules/${encodeURIComponent(s.id)}`, { method: "PUT", body: JSON.stringify({ enabled }) });
+      Object.assign(s, updated); renderSchedules();
+    } catch (err) {
+      s.enabled = !enabled; renderSchedules();
+      if (!(err instanceof SignedOut)) toast(`Couldn't update the schedule. ${err.message}`);
+    }
+  } else {
+    openSheet(s);
+  }
+};
+
+$("#addSchedule").onclick = () => openSheet(null);
+
+function openSheet(s) {
+  editing = s;
+  const base = state || {};
+  const nextHour = String((new Date().getHours() + 1) % 24).padStart(2, "0") + ":00";
+  draft = s
+    ? { time: s.time, days: [...s.days], pwr: s.action.pwr,
+        ac_mode: s.action.ac_mode ?? 0, temp: s.action.temp ?? 24, ac_mark: s.action.ac_mark ?? 0 }
+    : { time: nextHour, days: [], pwr: 1,
+        ac_mode: [0, 1, 2, 3, 4].includes(base.ac_mode) ? base.ac_mode : 0,
+        temp: typeof base.temp === "number" ? Math.round(base.temp / 10) : 24,
+        ac_mark: typeof base.ac_mark === "number" && FAN_LABELS[base.ac_mark] ? base.ac_mark : 0 };
+  $("#sheetTitle").textContent = s ? "Edit schedule" : "New schedule";
+  $("#sheetSave").textContent = s ? "Save changes" : "Save schedule";
+  $("#sheetDelete").hidden = !s;
+  $("#fTime").value = draft.time;
+  renderSheet();
+  $("#sheet").showModal();
+}
+
+function renderSheet() {
+  for (const b of $$("#fAction button")) b.setAttribute("aria-pressed", String(+b.dataset.v === draft.pwr));
+  for (const b of $$("#fDays .day")) b.setAttribute("aria-pressed", String(draft.days.includes(+b.dataset.d)));
+  $("#fRepeatHint").textContent = draft.days.length ? `Repeats: ${repeatText(draft.days).toLowerCase()}` : "Runs once. Pick days to repeat it.";
+  $("#fOnOnly").hidden = draft.pwr !== 1;
+  for (const b of $$("#fMode .chip")) b.setAttribute("aria-pressed", String(+b.dataset.v === draft.ac_mode));
+  showFanIndex($("#fFan"), fanIndex(draft.ac_mark));
+  $("#fTempField").hidden = draft.ac_mode === 3;
+  $("#fTemp").textContent = `${draft.temp}°`;
+  $("#fTempDown").disabled = draft.temp <= MIN;
+  $("#fTempUp").disabled = draft.temp >= MAX;
+}
+
+$("#fAction").onclick = (e) => { const b = e.target.closest("button"); if (b) { draft.pwr = +b.dataset.v; renderSheet(); } };
+$("#fDays").onclick = (e) => {
+  const b = e.target.closest(".day"); if (!b) return;
+  const d = +b.dataset.d;
+  draft.days = draft.days.includes(d) ? draft.days.filter((x) => x !== d) : [...draft.days, d];
+  renderSheet();
+};
+$("#fMode").onclick = (e) => { const b = e.target.closest(".chip"); if (b) { draft.ac_mode = +b.dataset.v; renderSheet(); } };
+wireFan($("#fFan"), (v) => { draft.ac_mark = v; });
+$("#fTempDown").onclick = () => { draft.temp = Math.max(MIN, draft.temp - 1); renderSheet(); };
+$("#fTempUp").onclick = () => { draft.temp = Math.min(MAX, draft.temp + 1); renderSheet(); };
+$("#fTime").oninput = (e) => { draft.time = e.target.value; };
+$("#sheetClose").onclick = () => $("#sheet").close();
+$("#sheet").addEventListener("click", (e) => { if (e.target === $("#sheet")) $("#sheet").close(); }); // tap backdrop to close
+
+$("#sheetForm").onsubmit = async (e) => {
+  e.preventDefault();
+  if (!/^\d{2}:\d{2}$/.test(draft.time || "")) { toast("Pick a time for the schedule."); $("#fTime").focus(); return; }
+  const action = draft.pwr === 1
+    ? { pwr: 1, ac_mode: draft.ac_mode, ac_mark: draft.ac_mark, ...(draft.ac_mode === 3 ? {} : { temp: draft.temp }) }
+    : { pwr: 0 };
+  const body = { deviceId: current, time: draft.time, days: draft.days, tz: TZ, enabled: true, action };
+  const btn = $("#sheetSave"); btn.disabled = true;
+  try {
+    if (editing) {
+      const updated = await api(`/api/schedules/${encodeURIComponent(editing.id)}`, { method: "PUT", body: JSON.stringify(body) });
+      Object.assign(editing, updated);
+    } else {
+      schedules.push(await api("/api/schedules", { method: "POST", body: JSON.stringify(body) }));
+    }
+    $("#sheet").close(); renderSchedules(); buzz();
+  } catch (err) {
+    if (!(err instanceof SignedOut)) toast(`Couldn't save the schedule. ${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("#sheetDelete").onclick = async () => {
+  if (!editing || !confirm("Delete this schedule?")) return;
+  try {
+    await api(`/api/schedules/${encodeURIComponent(editing.id)}`, { method: "DELETE" });
+    schedules = schedules.filter((s) => s.id !== editing.id);
+    $("#sheet").close(); renderSchedules();
+  } catch (err) {
+    if (!(err instanceof SignedOut)) toast(`Couldn't delete the schedule. ${err.message}`);
+  }
+};
+
+load();
+</script>
+</body>
+</html>

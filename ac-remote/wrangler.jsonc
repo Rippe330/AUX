@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ac-remote",
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": { "enabled": true },
+  // Schedules are stored in a Durable Object and checked every minute.
+  "durable_objects": { "bindings": [{ "name": "SCHEDULES", "class_name": "Schedules" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Schedules"] }],
+  "triggers": { "crons": ["* * * * *"] },
+  // Limits passcode guesses: 5 attempts per minute per IP address.
+  "ratelimits": [
+    { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 5, "period": 60 } }
+  ]
+  // Secrets (set with `npx wrangler secret put NAME`, never put them in this file):
+  //   AUX_EMAIL     - your AC Freedom login email
+  //   AUX_PASSWORD  - your AC Freedom password
+  //   APP_PASSCODE  - the passcode you'll type to open this web app
+  //   AUX_REGION    - optional: eu | usa | rus | cn (auto-detected if unset)
+}
